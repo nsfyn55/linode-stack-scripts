@@ -1,0 +1,25 @@
+#!/bin/bash
+# This block defines the variables the user of the script needs to input
+# when deploying using this script.
+#
+#
+#<UDF name="hostname" label="The hostname for the new Linode.">
+# HOSTNAME=
+#
+#<UDF name="minion_master" label="the url for the minion master">
+# MINION_MASTER=
+
+# sets hostname
+hostnamectl set-hostname $HOSTNAME
+
+# create salt directory
+mkdir /etc/salt
+
+# This updates the packages on the system from the distribution repositories.
+apt-get update
+apt-get upgrade -y
+apt-get -y install salt-minion 
+
+# get the real salt config
+echo "master: $MINION_MASTER" > /etc/salt/minion.d/override.conf
+systemctl restart salt-minion
