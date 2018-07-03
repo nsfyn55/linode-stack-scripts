@@ -8,6 +8,17 @@
 #
 #<UDF name="minion_master" label="the url for the minion master">
 # MINION_MASTER=
+#
+#<UDF name="admin_username" label="the name of the remote admin user">
+# ADMIN_USERNAME=
+#
+#<UDF name="admin_password" label="the password for remote admin user">
+# ADMIN_PASSWORD=
+#
+#<UDF name="admin_public_key" label="the remote admin public key">
+# ADMIN_PUBLIC_KEY=
+
+set -x
 
 # sets hostname
 hostnamectl set-hostname $HOSTNAME
@@ -23,3 +34,28 @@ apt-get -y install salt-minion
 # get the real salt config
 echo "master: $MINION_MASTER" > /etc/salt/minion.d/override.conf
 systemctl restart salt-minion
+
+#install a user and add keys
+useradd -m -p $(openssl passwd -1 $ADMIN_PASSWORD) -s /bin/bash -G sudo $ADMIN_USERNAME
+
+SSHDIR=/home/$ADMIN_USERNAME/.ssh
+mkdir $SSHDIR
+
+chmod 700 $SSHDIR
+chown $ADMIN_USERNAME:$ADMIN_USERNAME $SSHDIR
+touch $SSHDIR/authorized_keys
+chown $ADMIN_USERNAME:$ADMIN_USERNAME $SSHDIR/authorized_keys
+chmod 644 $SSHDIR/authorized_keys
+echo $ADMIN_PUBLIC_KEY >> $SSHDIR/authorized_keys
+
+#lock down ssh
+sed -i 's/PermitRootLogin yes/PermitRootLogin no/g' /etc/ssh/sshd_config
+sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+echo "AddressFamily inet" >> /etc/ssh/sshd_config
+sudo systemctl restart sshd
+
+#install and configure ufw
+apt-get -y install ufw
+ufw deny incoming
+ufw allow OpenSSH
+echo 'y' | ufw enable
